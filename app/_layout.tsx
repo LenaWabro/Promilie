@@ -5,6 +5,12 @@ import {Ionicons} from "@expo/vector-icons"
 export default function TabsLayout(){
     return(
         <Tabs>
+            <Tabs.Screen
+                name="index"
+                options={{
+                    href: null, // ← WICHTIG: damit wird sie NICHT in der Tabbar angezeigt
+                }}
+            />
             <Tabs.Screen name="galerie" options={{
                 title: 'galerie',
                 tabBarIcon: ({ color, size }) => (
