@@ -107,8 +107,17 @@ export default function Spiele() {
         const fullRotation = 360 * 3 + randomDeg;
 
         rotation.value = withTiming(fullRotation, { duration: 4000 }, () => {
-            const normalizedDeg = (360 - (randomDeg % 360)) % 360;
-            const selectedIndex = Math.floor(normalizedDeg / anglePerSegment) % numberOfGames;
+            // Berechnung für 4 Spiele (90° pro Segment)
+            const finalAngle = fullRotation % 360;
+
+            // Da wir 4 Spiele haben, ist jedes Segment 90° groß
+            // Pfeil zeigt nach unten, also starten wir bei 0° und teilen durch 90°
+            let adjustedAngle = (finalAngle + 90) % 360;
+
+            // Für gespiegelte Ergebnisse - Index umkehren
+            const rawIndex = Math.floor(adjustedAngle / 90);
+            const selectedIndex = (3 - rawIndex) % 4;
+
             runOnJS(setSelectedGame)(drinkingGames[selectedIndex]);
             runOnJS(setIsSpinning)(false);
         });
@@ -158,16 +167,17 @@ const styles = StyleSheet.create({
     },
     pointer: {
         position: "absolute",
-        top: -10,
+        top: -10, // statt top: -10
         width: 0,
         height: 0,
         borderLeftWidth: 15,
         borderRightWidth: 15,
-        borderBottomWidth: 30,
+        borderTopWidth: 30, // statt borderBottomWidth
         borderLeftColor: "transparent",
         borderRightColor: "transparent",
-        borderBottomColor: "#e63946",
+        borderTopColor: "#e63946", // statt borderBottomColor
         zIndex: 10,
+
     },
     button: {
         backgroundColor: "#457b9d",
