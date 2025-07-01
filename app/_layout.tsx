@@ -34,6 +34,7 @@ export default function TabsLayout() {
                 name="spiele"
                 options={{
                     title: 'Spiele',
+                    headerShown: false,   // <-- hier ausschalten
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="dice-outline" color={color} size={size} />
                     ),
