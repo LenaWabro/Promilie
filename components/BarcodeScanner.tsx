@@ -1,10 +1,12 @@
+// components/BarcodeScanner.tsx
+
 import React, { useState } from 'react'
 import { View, Text, Button, TouchableOpacity, StyleSheet } from 'react-native'
 import {
     CameraView,
     CameraType,
     useCameraPermissions,
-    BarcodeScanningResult
+    BarcodeScanningResult,
 } from 'expo-camera'
 
 type Props = {
@@ -22,7 +24,7 @@ export default function BarcodeScanner({ onScanned }: Props) {
         return (
             <View style={styles.center}>
                 <Text style={styles.message}>
-                    Wir brauchen Deine Erlaubnis für die Kamera
+                    Wir brauchen deine Erlaubnis für die Kamera.
                 </Text>
                 <Button title="Erlaubnis erteilen" onPress={requestPermission} />
             </View>
