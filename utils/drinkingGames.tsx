@@ -22,4 +22,11 @@ export const drinkingGames: DrinkingGame[] = [
         difficulty: "medium",
         alcoholLevel: "high",
     },
+    {
+        name: "Hallo",
+        description: "Alle trinken gleichzeitig. Du darfst erst aufhören, wenn die Person links aufhört.",
+        minPlayers: 2,
+        difficulty: "medium",
+        alcoholLevel: "high",
+    },
 ];
