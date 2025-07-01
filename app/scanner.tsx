@@ -104,7 +104,7 @@ export default function ScannerScreen() {
             <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
                 {/* Banner bleibt */}
                 <ImageBackground
-                    source={require('../assets/Scenner.jpeg')}
+                    source={require('../img/Scenner.jpeg')}
                     style={styles.header}
                 >
                     <View style={styles.headerOverlay}>
