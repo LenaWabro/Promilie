@@ -10,7 +10,8 @@ import {
     Image,
     Modal,
     Button,
-    Share
+    Share,
+    ImageBackground,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,11 +23,7 @@ import MasonryList from '@react-native-seoul/masonry-list';
 const PHOTO_DIR = FileSystem.documentDirectory + 'photos/';
 const STORAGE_KEY = 'PHOTO_EVENTS';
 
-type Event = {
-    id: string;
-    name: string;
-    photos: string[];
-};
+type Event = { id: string; name: string; photos: string[]; };
 
 export default function PhotoStoreScreen() {
     const [events, setEvents] = useState<Event[]>([]);
@@ -34,10 +31,9 @@ export default function PhotoStoreScreen() {
     const [modalVisible, setModalVisible] = useState(false);
     const [newEventName, setNewEventName] = useState('');
 
-    // 1) Setup: Foto-Ordner + gespeicherte Events laden
+    // Load events + ensure photo directory
     useEffect(() => {
         (async () => {
-            console.log('🚀 App start: lade Events aus AsyncStorage');
             const info = await FileSystem.getInfoAsync(PHOTO_DIR);
             if (!info.exists) {
                 await FileSystem.makeDirectoryAsync(PHOTO_DIR, { intermediates: true });
@@ -51,43 +47,39 @@ export default function PhotoStoreScreen() {
         })();
     }, []);
 
-    // 2) Persistiere Events in AsyncStorage
+    // Persist events
     useEffect(() => {
         AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(events));
     }, [events]);
 
-    // 3) Neues Event anlegen
+    // Create new event
     const createEvent = () => {
         const name = newEventName.trim();
         if (!name) return;
         const id = Date.now().toString();
-        setEvents(prev => [...prev, { id, name, photos: [] }]);
+        setEvents((prev) => [...prev, { id, name, photos: [] }]);
         setNewEventName('');
         setModalVisible(false);
         setSelectedEventId(id);
     };
 
-    // 4) Event löschen (inkl. Fotos im FS)
+    // Delete event + its folder
     const deleteEvent = (id: string) => {
-        Alert.alert(
-            'Event löschen?',
-            'Alle zugehörigen Fotos werden ebenfalls entfernt.',
-            [
-                { text: 'Abbrechen', style: 'cancel' },
-                {
-                    text: 'Löschen',
-                    style: 'destructive',
-                    onPress: async () => {
-                        await FileSystem.deleteAsync(PHOTO_DIR + id, { idempotent: true });
-                        setEvents(prev => prev.filter(e => e.id !== id));
-                        if (selectedEventId === id) setSelectedEventId(null);
-                    },
+        Alert.alert('Event löschen?', 'Alle zugehörigen Fotos werden ebenfalls entfernt.', [
+            { text: 'Abbrechen', style: 'cancel' },
+            {
+                text: 'Löschen',
+                style: 'destructive',
+                onPress: async () => {
+                    await FileSystem.deleteAsync(PHOTO_DIR + id, { idempotent: true });
+                    setEvents((prev) => prev.filter((e) => e.id !== id));
+                    if (selectedEventId === id) setSelectedEventId(null);
                 },
-            ]
-        );
+            },
+        ]);
     };
 
-    // 5) Bild aufnehmen oder aus Galerie holen
+    // Pick or take a photo
     const pickImage = async (fromCamera: boolean) => {
         if (!selectedEventId) {
             Alert.alert('Kein Event ausgewählt', 'Lege zuerst ein Event an.');
@@ -104,7 +96,6 @@ export default function PhotoStoreScreen() {
             ? await ImagePicker.launchCameraAsync({ quality: 1 })
             : await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: false,
                 quality: 1,
             });
         if (result.canceled) return;
@@ -120,16 +111,14 @@ export default function PhotoStoreScreen() {
         const destUri = dir + filename;
         await FileSystem.copyAsync({ from: asset.uri, to: destUri });
 
-        setEvents(prev =>
-            prev.map(e =>
-                e.id === selectedEventId
-                    ? { ...e, photos: [...e.photos, destUri] }
-                    : e
+        setEvents((prev) =>
+            prev.map((e) =>
+                e.id === selectedEventId ? { ...e, photos: [...e.photos, destUri] } : e
             )
         );
     };
 
-    // 6) Dialog „Kamera oder Galerie?“
+    // Show native source picker
     const addPhoto = () => {
         Alert.alert('Foto hinzufügen', 'Quelle wählen:', [
             { text: 'Abbrechen', style: 'cancel' },
@@ -138,7 +127,7 @@ export default function PhotoStoreScreen() {
         ]);
     };
 
-    // 7) Foto‐Aktionen
+    // Photo action sheet
     const onPhotoPress = (uri: string) => {
         Alert.alert('Aktion wählen', '', [
             { text: 'Teilen', onPress: () => Share.share({ url: uri }) },
@@ -160,10 +149,10 @@ export default function PhotoStoreScreen() {
                 style: 'destructive',
                 onPress: async () => {
                     await FileSystem.deleteAsync(uri);
-                    setEvents(prev =>
-                        prev.map(e =>
+                    setEvents((prev) =>
+                        prev.map((e) =>
                             e.id === selectedEventId
-                                ? { ...e, photos: e.photos.filter(p => p !== uri) }
+                                ? { ...e, photos: e.photos.filter((p) => p !== uri) }
                                 : e
                         )
                     );
@@ -173,14 +162,24 @@ export default function PhotoStoreScreen() {
         ]);
     };
 
-    // 8) Event‐Übersicht
+    // ––––––––––– LIST VIEW –––––––––––
     if (!selectedEventId) {
         return (
             <View style={styles.container}>
-                <Text style={styles.title}>🎉 Deine Feiern</Text>
+                {/* siempre header */}
+                <ImageBackground
+                    source={require('../img/party.jpg')}
+                    style={styles.header}
+                >
+                    <View style={styles.headerOverlay}>
+                        <Text style={styles.headerTitle}>GALERIE</Text>
+                    </View>
+                </ImageBackground>
+
+                <Text style={styles.title}>DEINE PARTYS</Text>
                 <FlatList
                     data={events}
-                    keyExtractor={e => e.id}
+                    keyExtractor={(e) => e.id}
                     renderItem={({ item }) => (
                         <View style={styles.eventBar}>
                             <TouchableOpacity
@@ -190,39 +189,31 @@ export default function PhotoStoreScreen() {
                                 <Text style={styles.eventText}>{item.name}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity onPress={() => deleteEvent(item.id)}>
-                                <Ionicons name="trash-outline" size={24} color="#900" />
+                                <Ionicons name="trash-outline" size={24} style={styles.trashIcon} />
                             </TouchableOpacity>
                         </View>
                     )}
-                    ListEmptyComponent={
-                        <Text style={styles.emptyText}>Noch keine Feiern.</Text>
-                    }
+                    ListEmptyComponent={<Text style={styles.emptyText}>Noch keine Feiern.</Text>}
                 />
 
-                {/* Rundes grünes Plus-Icon */}
-                <TouchableOpacity
-                    style={styles.fab}
-                    onPress={() => setModalVisible(true)}
-                >
-                    <Ionicons name="add-circle" size={56} color="#4CAF50" />
+                <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
+                    <Ionicons name="add-circle" size={56} color="#FFFFFF" />
                 </TouchableOpacity>
 
                 <Modal transparent visible={modalVisible} animationType="slide">
                     <View style={styles.modalBackdrop}>
                         <View style={styles.modalContent}>
-                            <Text style={styles.modalTitle}>Neue Feier</Text>
+                            <Text style={styles.modalTitle}>NEUE FEIER</Text>
                             <TextInput
                                 style={styles.input}
                                 placeholder="Name der Feier"
+                                placeholderTextColor="#400A6D"
                                 value={newEventName}
                                 onChangeText={setNewEventName}
                             />
                             <View style={styles.modalButtons}>
-                                <Button
-                                    title="Abbrechen"
-                                    onPress={() => setModalVisible(false)}
-                                />
-                                <Button title="Erstellen" onPress={createEvent} />
+                                <Button title="Abbrechen" color="#400A6D" onPress={() => setModalVisible(false)} />
+                                <Button title="Erstellen" color="#400A6D" onPress={createEvent} />
                             </View>
                         </View>
                     </View>
@@ -231,68 +222,77 @@ export default function PhotoStoreScreen() {
         );
     }
 
-    // 9) Event‐Detail
-    const ev = events.find(e => e.id === selectedEventId)!;
+    // ––––––––––– DETAIL VIEW –––––––––––
+    const ev = events.find((e) => e.id === selectedEventId)!;
     return (
         <View style={styles.container}>
-            <View style={styles.headerRow}>
+            {/* siempre header */}
+            <ImageBackground
+                source={require('../img/party.jpg')}
+                style={styles.header}
+            >
+                <View style={styles.headerOverlay}>
+                    <Text style={styles.headerTitle}>GALERIE</Text>
+                </View>
+            </ImageBackground>
+
+            {/* Unter Header: Back + Eventname */}
+            <View style={styles.detailHeaderRow}>
                 <TouchableOpacity onPress={() => setSelectedEventId(null)}>
-                    <Ionicons name="arrow-back" size={28} color="#333" />
+                    <Ionicons name="arrow-back" size={28} color="#FFFFFF" />
                 </TouchableOpacity>
-                <Text style={styles.title}>{ev.name}</Text>
+                <Text style={styles.detailTitle}>{ev.name}</Text>
             </View>
+
             {ev.photos.length === 0 ? (
                 <Text style={styles.emptyText}>Noch keine Fotos.</Text>
             ) : (
                 <MasonryList
-                    data={ev.photos.map(uri => ({ uri }))}
-                    keyExtractor={it => it.uri}
+                    data={ev.photos.map((uri) => ({ uri }))}
+                    keyExtractor={(it) => it.uri}
                     numColumns={2}
                     showsVerticalScrollIndicator={false}
                     style={styles.masonry}
                     renderItem={({ item }) => (
-                        <TouchableOpacity
-                            style={styles.item}
-                            onPress={() => onPhotoPress(item.uri)}
-                        >
+                        <TouchableOpacity style={styles.item} onPress={() => onPhotoPress(item.uri)}>
                             <Image source={{ uri: item.uri }} style={styles.image} />
                         </TouchableOpacity>
                     )}
                 />
             )}
 
-            {/* Rotes Plus-Icon im Event-Detail */}
             <TouchableOpacity style={styles.fab} onPress={addPhoto}>
-                <Ionicons name="add-circle" size={56} color="#FF6F61" />
+                <Ionicons name="add-circle" size={56} color="#FFFFFF" />
             </TouchableOpacity>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container:           { flex: 1, padding: 20, backgroundColor: '#fff' },
-    title:               { fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginVertical: 10 },
-    eventBar:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f9f9f9', padding: 15, marginBottom: 10, borderRadius: 8 },
-    eventNameContainer:  { flex: 1 },
-    eventText:           { fontSize: 18 },
-    headerRow:           { flexDirection: 'row', alignItems: 'center' },
-    // FAB: rund, ohne eigenen Hintergrund
-    fab: {
-        position: 'absolute',
-        bottom: 30,
-        right: 20,
-        width: 56,
-        height: 56,
-        alignItems: 'center',
+    container:       { flex: 1, backgroundColor: '#400A6D' },
+    header:          { width: '100%', height: 200 },
+    headerOverlay:   {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.3)',
         justifyContent: 'center',
+        alignItems: 'center',
     },
-    input:               { borderBottomWidth: 1, padding: 5, marginBottom: 15, width: '100%' },
-    modalBackdrop:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-    modalContent:        { backgroundColor: '#fff', borderRadius: 8, padding: 20 },
-    modalTitle:          { fontSize: 18, marginBottom: 10 },
-    modalButtons:        { flexDirection: 'row', justifyContent: 'space-between' },
-    emptyText:           { textAlign: 'center', marginTop: 20, color: '#888' },
-    masonry:             { flex: 1, marginTop: 10 },
-    item:                { margin: 6, borderRadius: 8, overflow: 'hidden', backgroundColor: '#f0f0f0', shadowColor: '#000', shadowOpacity: 0.08, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4, elevation: 2 },
-    image:               { width: '100%', aspectRatio: 1 },
+    headerTitle:     { fontSize: 28, fontWeight: 'bold', color: '#FFF', textTransform: 'uppercase', letterSpacing: 1 },
+    title:           { fontSize: 22, fontWeight: 'bold', margin: 20, color: '#FFF', textTransform: 'uppercase', letterSpacing: 1 },
+    eventBar:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#CFA8FF', marginHorizontal: 20, paddingVertical: 14, paddingHorizontal: 20, marginBottom: 12, borderRadius: 12 },
+    eventNameContainer:{ flex: 1 },
+    eventText:       { fontSize: 18, color: '#400A6D', fontWeight: 'bold', textTransform: 'uppercase' },
+    trashIcon:       { color: '#400A6D' },
+    detailHeaderRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16 },
+    detailTitle:     { fontSize: 20, fontWeight: '600', color: '#FFF', marginLeft: 12 },
+    fab:             { position: 'absolute', bottom: 30, right: 20 },
+    input:           { backgroundColor: '#FFF', borderRadius: 8, padding: 10, marginHorizontal: 20, marginBottom: 20, color: '#400A6D' },
+    modalBackdrop:   { flex: 1, backgroundColor: 'rgba(69,0,105,0.8)', justifyContent: 'center', padding: 20 },
+    modalContent:    { backgroundColor: '#CFA8FF', borderRadius: 12, padding: 24 },
+    modalTitle:      { fontSize: 20, fontWeight: 'bold', color: '#400A6D', marginBottom: 16, textAlign: 'center', textTransform: 'uppercase' },
+    modalButtons:    { flexDirection: 'row', justifyContent: 'space-between' },
+    emptyText:       { textAlign: 'center', color: '#FFF', margin: 20, fontWeight: '500' },
+    masonry:         { flex: 1, padding: 12 },
+    item:            { margin: 6, borderRadius: 8, overflow: 'hidden', backgroundColor: '#DDD' },
+    image:           { width: '100%', aspectRatio: 1 },
 });
