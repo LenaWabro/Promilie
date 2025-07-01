@@ -8,10 +8,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import MasonryList from '@react-native-seoul/masonry-list';
 import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 
 import {
     collection, getDocs, doc,
-    setDoc, updateDoc, arrayUnion, deleteDoc,
+    setDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc,
     onSnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase_config';
@@ -122,9 +123,52 @@ export default function PhotoStoreScreen() {
         // Anzeige aktualisiert sich automatisch via onSnapshot
     };
 
-    // 6) Foto teilen
+    // 6) Foto teilen, löschen oder speichern
     const onPhotoPress = (uri: string) => {
-        Share.share({ url: uri }).catch(console.error);
+        Alert.alert('Was möchtest du tun?', '', [
+            { text: 'Teilen', onPress: () => Share.share({ url: uri }).catch(console.error) },
+            { text: 'In Galerie speichern', onPress: () => saveImageToGallery(uri) },
+            { text: 'Löschen', style: 'destructive', onPress: () => deletePhoto(uri) },
+            { text: 'Abbrechen', style: 'cancel' },
+        ]);
+    };
+
+    // Speichere Bild in der Galerie
+    const saveImageToGallery = async (dataUrl: string) => {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Zugriff verweigert');
+            return;
+        }
+
+        try {
+            // 1. Base64-Daten aus der DataURL extrahieren
+            const base64Data = dataUrl.split(',')[1]; // "data:image/jpeg;base64,..." -> nur der Base64-Teil
+
+            // 2. Temporären Dateipfad erstellen
+            const fileUri = `${FileSystem.cacheDirectory}${Date.now()}.jpg`;
+
+            // 3. Datei schreiben
+            await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
+
+            // 4. Datei in Galerie speichern
+            await MediaLibrary.saveToLibraryAsync(fileUri);
+
+            Alert.alert('Gespeichert ✅', 'Das Bild wurde in deine Galerie gespeichert.');
+        } catch (e) {
+            console.error(e);
+            Alert.alert('Fehler beim Speichern');
+        }
+    };
+
+
+    // Foto aus Firestore-Array entfernen
+    const deletePhoto = async (uri: string) => {
+        if (!selectedEventId) return;
+        await updateDoc(doc(db, 'events', selectedEventId), {
+            photos: arrayRemove(uri)
+        });
+        // Ansicht aktualisiert sich automatisch über onSnapshot
     };
 
     // 7) Liste anzeigen, wenn kein Event gewählt
