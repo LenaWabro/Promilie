@@ -8,11 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import MasonryList from '@react-native-seoul/masonry-list';
 import * as FileSystem from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
 
 import {
     collection, getDocs, doc,
-    setDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc,
+    setDoc, updateDoc, arrayUnion, deleteDoc,
     onSnapshot
 } from 'firebase/firestore';
 import { db } from '../firebase_config';
@@ -50,7 +49,9 @@ export default function PhotoStoreScreen() {
         }
         setLoadingEvent(true);
         const unsub = onSnapshot(doc(db, 'events', selectedEventId), snap => {
-            setCurrentEvent(snap.exists() ? (snap.data() as Event) : null);
+            if (snap.exists()) {
+                setCurrentEvent(snap.data() as Event);
+            }
             setLoadingEvent(false);
         });
         return () => unsub();
@@ -114,40 +115,16 @@ export default function PhotoStoreScreen() {
         });
         const dataUrl = `data:image/jpeg;base64,${base64}`;
 
-        // Anhängen mit arrayUnion
+        // In Firestore ans Event anhängen
         await updateDoc(doc(db, 'events', selectedEventId), {
             photos: arrayUnion(dataUrl)
         });
+        // Anzeige aktualisiert sich automatisch via onSnapshot
     };
 
-    // 6) Foto-Aktionen: Teilen, Speichern, Löschen
-    const handlePhotoAction = (uri: string) => {
-        Alert.alert('Aktion wählen', '', [
-            { text: 'Teilen', onPress: () => Share.share({ url: uri }) },
-            {
-                text: 'Speichern',
-                onPress: async () => {
-                    const { status } = await MediaLibrary.requestPermissionsAsync();
-                    if (status !== 'granted') {
-                        Alert.alert('Zugriff verweigert');
-                        return;
-                    }
-                    const asset = await MediaLibrary.createAssetAsync(uri);
-                    await MediaLibrary.createAlbumAsync('Promilie', asset, false);
-                    Alert.alert('In Galerie gespeichert');
-                }
-            },
-            {
-                text: 'Löschen',
-                style: 'destructive',
-                onPress: async () => {
-                    await updateDoc(doc(db, 'events', selectedEventId!), {
-                        photos: arrayRemove(uri)
-                    });
-                }
-            },
-            { text: 'Abbrechen', style: 'cancel' }
-        ]);
+    // 6) Foto teilen
+    const onPhotoPress = (uri: string) => {
+        Share.share({ url: uri }).catch(console.error);
     };
 
     // 7) Liste anzeigen, wenn kein Event gewählt
@@ -230,7 +207,7 @@ export default function PhotoStoreScreen() {
                     keyExtractor={it => it.uri}
                     numColumns={2}
                     renderItem={({ item }) => (
-                        <TouchableOpacity onPress={() => handlePhotoAction(item.uri)}>
+                        <TouchableOpacity onPress={() => onPhotoPress(item.uri)}>
                             <Image source={{ uri: item.uri }} style={styles.image} />
                         </TouchableOpacity>
                     )}
@@ -242,7 +219,7 @@ export default function PhotoStoreScreen() {
                     Alert.alert('Foto hinzufügen', 'Quelle wählen', [
                         { text: 'Kamera', onPress: () => pickAndSaveImage(true) },
                         { text: 'Galerie', onPress: () => pickAndSaveImage(false) },
-                        { text: 'Abbrechen', style: 'cancel' }
+                        { text: 'Abbrechen', style: 'cancel' },
                     ])
                 }
             >

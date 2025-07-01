@@ -15,7 +15,7 @@ const app = getApps().length === 0
     ? initializeApp(firebaseConfig)
     : getApp();
 
-// Firestore mit Long-Polling (stabil in Expo Go)
+// Firestore mit Long Polling
 export const db = initializeFirestore(app, {
     experimentalForceLongPolling: true,
 });
