@@ -25,6 +25,7 @@ export default function TabsLayout() {
                 name="scanner"
                 options={{
                     title: 'Scanner',
+                    headerShown: false,
                     tabBarIcon: ({ color, size }) => (
                         <Ionicons name="barcode-outline" color={color} size={size} />
                     ),
