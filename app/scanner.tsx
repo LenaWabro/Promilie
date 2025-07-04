@@ -44,6 +44,14 @@ type Drink = {
     createdAt: any
 }
 
+const InfoBox: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    return (
+        <View style={styles.infoBox}>
+            <Text style={styles.infoBoxText}>{children}</Text>
+        </View>
+    )
+}
+
 export default function ScannerScreen() {
     const [scanning, setScanning] = useState(false)
     const [scanned, setScanned] = useState(false)
@@ -116,10 +124,9 @@ export default function ScannerScreen() {
         const updatedDrinks = drinks.filter((d) => d.id !== id)
         setDrinks(updatedDrinks)
 
-        if (updatedDrinks.length === 0) {
-            setPromille(null)
-            setDrivingHint(null)
-        }
+        // Promille und Fahr-Hinweis immer zurücksetzen, wenn ein Drink gelöscht wird
+        setPromille(null)
+        setDrivingHint(null)
     }
 
     const fetchProduct = async (barcode: string) => {
@@ -324,11 +331,7 @@ export default function ScannerScreen() {
                             <Text style={styles.title}>
                                 Geschätzte Promille: {promille}‰
                             </Text>
-                            {drivingHint && (
-                                <Text style={[styles.title, { fontSize: 18, color: '#FFD700' }]}>
-                                    {drivingHint}
-                                </Text>
-                            )}
+                            {drivingHint && <InfoBox>{drivingHint}</InfoBox>}
                         </>
                     )}
 
@@ -403,7 +406,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     title: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: 'bold',
         margin: 20,
         color: '#FFF',
@@ -425,7 +428,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     card: {
-        backgroundColor: '#CFA8FF',
+        backgroundColor: '#fff',
         borderRadius: 12,
         marginHorizontal: 20,
         marginBottom: 16,
@@ -434,12 +437,12 @@ const styles = StyleSheet.create({
     cardTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#400A6D',
+        color: 'black',
         marginBottom: 8,
     },
     cardText: {
         fontSize: 16,
-        color: '#400A6D',
+        color: 'black',
     },
     genderButtonsContainer: {
         flexDirection: 'row',
@@ -470,5 +473,26 @@ const styles = StyleSheet.create({
     },
     genderButtonTextInactive: {
         color: '#FFF',
+    },
+    infoBox: {
+        backgroundColor: 'rgba(255, 255, 255, 0.1)', // sehr dezenter heller Hintergrund
+        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        marginHorizontal: 20,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(207, 168, 255, 0.4)', // zarter lila Rand
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    infoBoxText: {
+        color: '#CFA8FF', // helles Lila
+        fontWeight: '500',
+        fontSize: 16,
+        textAlign: 'center',
     },
 })
