@@ -1,3 +1,12 @@
+// ======================================================================
+// PhotoStoreScreen.tsx
+// ----------------------------------------------------------------------
+// Diese React Native Komponente implementiert eine Event-basierte Galerie.
+// Nutzer können Events erstellen, Fotos hochladen, anzeigen, teilen,
+// speichern oder löschen. Die Fotos werden in Firebase Storage gespeichert,
+// die Event- und Fotodaten in Firestore verwaltet.
+// ======================================================================
+
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, Alert, StyleSheet, FlatList,
@@ -15,26 +24,40 @@ import {
     onSnapshot
 } from 'firebase/firestore';
 import {
-    getStorage,
-    ref,
-    uploadBytes,
-    getDownloadURL,
-    deleteObject
+    ref, uploadBytes, getDownloadURL, deleteObject
 } from 'firebase/storage';
-import { db, storage, firebaseConfig } from '../firebase_config';
+import { db, storage } from '../firebase_config';
 
+// ==========================================================
+// Typdefinition für ein Event-Objekt mit ID, Name & Fotos
+// ==========================================================
 type Event = { id: string; name: string; photos: string[] };
 
+// ==========================================================
+// Hauptkomponente für die Foto-Event-Verwaltung
+// ==========================================================
 export default function PhotoStoreScreen() {
-    const [events, setEvents] = useState<Event[]>([]);
-    const [loadingEvents, setLoadingEvents] = useState(true);
-    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-    const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
-    const [loadingEvent, setLoadingEvent] = useState(false);
-    const [uploadingPhoto, setUploadingPhoto] = useState(false);
-    const [modalVisible, setModalVisible] = useState(false);
-    const [newEventName, setNewEventName] = useState('');
+    // -------------------------------
+    // States für Events & Modals
+    // -------------------------------
+    const [events, setEvents] = useState<Event[]>([]); // Alle Events
+    const [loadingEvents, setLoadingEvents] = useState(true); // Laden-Status der Eventliste
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null); // aktuell ausgewähltes Event
+    const [currentEvent, setCurrentEvent] = useState<Event | null>(null); // Daten des aktiven Events
+    const [loadingEvent, setLoadingEvent] = useState(false); // Laden-Status für ein einzelnes Event
+    const [uploadingPhoto, setUploadingPhoto] = useState(false); // Foto wird hochgeladen?
+    const [modalVisible, setModalVisible] = useState(false); // Modal für Event-Erstellung
+    const [newEventName, setNewEventName] = useState(''); // Eingabe für neuen Eventnamen
 
+    // -------------------------------
+    // States für Bild-Modal
+    // -------------------------------
+    const [photoModalVisible, setPhotoModalVisible] = useState(false); // Modal für Bild-Vollansicht
+    const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null); // aktuell geöffnetes Bild
+
+    // ==========================================================
+    // Effekt: Lade alle Events aus Firestore beim Start
+    // ==========================================================
     useEffect(() => {
         (async () => {
             setLoadingEvents(true);
@@ -46,6 +69,9 @@ export default function PhotoStoreScreen() {
         })();
     }, []);
 
+    // ==========================================================
+    // Effekt: Lade Details für ausgewähltes Event (Live-Update)
+    // ==========================================================
     useEffect(() => {
         if (!selectedEventId) {
             setCurrentEvent(null);
@@ -58,13 +84,16 @@ export default function PhotoStoreScreen() {
             }
             setLoadingEvent(false);
         });
-        return () => unsub();
+        return () => unsub(); // Aufräumen
     }, [selectedEventId]);
 
+    // ==========================================================
+    // Neues Event in Firestore anlegen
+    // ==========================================================
     const createEvent = async () => {
         const name = newEventName.trim();
         if (!name) return;
-        const id = Date.now().toString();
+        const id = Date.now().toString(); // ID aus Zeitstempel
         await setDoc(doc(db, 'events', id), { id, name, photos: [] });
         setEvents(prev => [...prev, { id, name, photos: [] }]);
         setNewEventName('');
@@ -72,25 +101,30 @@ export default function PhotoStoreScreen() {
         setSelectedEventId(id);
     };
 
+    // ==========================================================
+    // Event samt Fotos löschen
+    // ==========================================================
     const deleteEvent = (id: string) => {
         Alert.alert('Event löschen?', '', [
             { text: 'Abbrechen', style: 'cancel' },
             {
-                text: 'Löschen', style: 'destructive', onPress: async () => {
+                text: 'Löschen',
+                style: 'destructive',
+                onPress: async () => {
                     const eventToDelete = events.find(e => e.id === id);
                     if (eventToDelete?.photos) {
                         for (const photoUrl of eventToDelete.photos) {
                             try {
-                                const path = photoUrl.split('/o/')[1].split('?')[0]; // URL-dekodieren nicht vergessen!
+                                const path = photoUrl.split('/o/')[1].split('?')[0];
                                 const decodedPath = decodeURIComponent(path);
                                 const photoRef = ref(storage, decodedPath);
-                                await deleteObject(photoRef);
+                                await deleteObject(photoRef); // Foto aus Storage löschen
                             } catch (error) {
                                 console.log('Fehler beim Löschen des Fotos:', error);
                             }
                         }
                     }
-                    await deleteDoc(doc(db, 'events', id));
+                    await deleteDoc(doc(db, 'events', id)); // Event aus Firestore löschen
                     setEvents(prev => prev.filter(e => e.id !== id));
                     if (selectedEventId === id) setSelectedEventId(null);
                 }
@@ -98,6 +132,11 @@ export default function PhotoStoreScreen() {
         ]);
     };
 
+    // ==========================================================
+    // Foto aufnehmen oder aus Galerie wählen und hochladen
+    // useCamera = true -> Kamera
+    // useCamera = false -> Galerie
+    // ==========================================================
     const pickAndSaveImageExpo = async (useCamera) => {
         if (!selectedEventId) {
             Alert.alert('Kein Event ausgewählt');
@@ -134,35 +173,17 @@ export default function PhotoStoreScreen() {
             const response = await fetch(uri);
             const blob = await response.blob();
 
-            // Dateiname aus URI extrahieren oder Fallback erzeugen
             const uriParts = uri.split('/');
             const rawName = uriParts[uriParts.length - 1] || `image_${Date.now()}`;
-            const cleanName = rawName.split('?')[0]; // Entfernt Query-Parameter
+            const cleanName = rawName.split('?')[0];
             const storageRef = ref(storage, `${selectedEventId}/${cleanName}`);
 
-           console.log("URI:", uri);
-            console.log("Blob:", blob);
-            console.log("Pfad:", `${cleanName}`);
+            await uploadBytes(storageRef, blob); // Foto hochladen
+            const downloadURL = await getDownloadURL(storageRef);
 
-            try {
-                await uploadBytes(storageRef, blob);
-                const downloadURL = await getDownloadURL(storageRef);
-                await updateDoc(doc(db, 'events', selectedEventId), {
-                    photos: arrayUnion(downloadURL)
-                });
-                //return downloadURL;
-
-            } catch (error: any) {
-                console.error("Upload-Fehler:", error);
-                console.log("Code:", error.code);
-                console.log("Message:", error.message);
-                console.log("Full Error Object:", JSON.stringify(error));
-                throw error;
-            }
-
-
-
-
+            await updateDoc(doc(db, 'events', selectedEventId), {
+                photos: arrayUnion(downloadURL)
+            });
 
             Alert.alert('Erfolg!', 'Foto wurde hochgeladen');
         } catch (error) {
@@ -173,15 +194,17 @@ export default function PhotoStoreScreen() {
         }
     };
 
+    // ==========================================================
+    // Bild-Vollansicht öffnen
+    // ==========================================================
     const onPhotoPress = (url: string) => {
-        Alert.alert('Was möchtest du tun?', '', [
-            { text: 'Teilen', onPress: () => Share.share({ url }).catch(console.error) },
-            { text: 'In Galerie speichern', onPress: () => saveImageToGallery(url) },
-            { text: 'Löschen', style: 'destructive', onPress: () => deletePhoto(url) },
-            { text: 'Abbrechen', style: 'cancel' },
-        ]);
+        setSelectedPhotoUrl(url);
+        setPhotoModalVisible(true);
     };
 
+    // ==========================================================
+    // Bild lokal speichern (Galerie)
+    // ==========================================================
     const saveImageToGallery = async (url: string) => {
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== 'granted') {
@@ -192,6 +215,7 @@ export default function PhotoStoreScreen() {
             const response = await fetch(url);
             const blob = await response.blob();
             const fileUri = `${FileSystem.cacheDirectory}${Date.now()}.jpg`;
+
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64data = (reader.result as string).split(',')[1];
@@ -208,17 +232,17 @@ export default function PhotoStoreScreen() {
         }
     };
 
+    // ==========================================================
+    // Foto aus Firestore & Storage löschen
+    // ==========================================================
     const deletePhoto = async (url: string) => {
         if (!selectedEventId) return;
         try {
             await updateDoc(doc(db, 'events', selectedEventId), {
                 photos: arrayRemove(url)
             });
-
-            // Pfad aus URL extrahieren:
             const path = url.split('/o/')[1].split('?')[0];
             const decodedPath = decodeURIComponent(path);
-
             const photoRef = ref(storage, decodedPath);
             await deleteObject(photoRef);
         } catch (error) {
@@ -227,6 +251,9 @@ export default function PhotoStoreScreen() {
         }
     };
 
+    // ==========================================================
+    // Ansicht: keine Feier ausgewählt -> Liste anzeigen
+    // ==========================================================
     if (!selectedEventId) {
         return (
             <View style={styles.container}>
@@ -258,6 +285,7 @@ export default function PhotoStoreScreen() {
                 <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
                     <Ionicons name="add-circle" size={56} color="#FFF" />
                 </TouchableOpacity>
+                {/* Modal für neues Event */}
                 <Modal transparent visible={modalVisible} animationType="slide">
                     <View style={styles.modalBackdrop}>
                         <View style={styles.modalContent}>
@@ -280,12 +308,16 @@ export default function PhotoStoreScreen() {
         );
     }
 
+    // ==========================================================
+    // Ansicht: Detailansicht für eine Feier + Fotos
+    // ==========================================================
     if (loadingEvent || !currentEvent) {
         return <ActivityIndicator color="#FFF" style={styles.container} />;
     }
 
     return (
         <View style={styles.container}>
+            {/* Header */}
             <ImageBackground source={require('../img/party.jpg')} style={styles.header}>
                 <View style={styles.headerOverlay}>
                     <Text style={styles.headerTitle}>GALERIE</Text>
@@ -297,12 +329,16 @@ export default function PhotoStoreScreen() {
                 </TouchableOpacity>
                 <Text style={styles.detailTitle}>{currentEvent.name}</Text>
             </View>
+
+            {/* Upload-Status */}
             {uploadingPhoto && (
                 <View style={styles.uploadingContainer}>
                     <ActivityIndicator color="#FFF" />
                     <Text style={styles.uploadingText}>Foto wird hochgeladen...</Text>
                 </View>
             )}
+
+            {/* Foto-Liste */}
             {currentEvent.photos.length === 0 ? (
                 <Text style={styles.emptyText}>Noch keine Fotos.</Text>
             ) : (
@@ -317,6 +353,8 @@ export default function PhotoStoreScreen() {
                     )}
                 />
             )}
+
+            {/* Foto hinzufügen */}
             <TouchableOpacity
                 style={[styles.fab, uploadingPhoto && styles.fabDisabled]}
                 disabled={uploadingPhoto}
@@ -330,10 +368,42 @@ export default function PhotoStoreScreen() {
             >
                 <Ionicons name="add-circle" size={56} color="#FFF" />
             </TouchableOpacity>
+
+            {/* Bild-Modal */}
+            <Modal
+                visible={photoModalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setPhotoModalVisible(false)}
+            >
+                <View style={styles.modalBackdrop}>
+                    <View style={styles.imageModalContent}>
+                        {selectedPhotoUrl && (
+                            <Image
+                                source={{ uri: selectedPhotoUrl }}
+                                style={styles.fullscreenImage}
+                                resizeMode="contain"
+                            />
+                        )}
+                        <View style={styles.modalButtonRow}>
+                            <Button title="Teilen" onPress={() => Share.share({ url: selectedPhotoUrl! })} />
+                            <Button title="Speichern" onPress={() => saveImageToGallery(selectedPhotoUrl!)} />
+                            <Button title="Löschen" color="red" onPress={() => {
+                                deletePhoto(selectedPhotoUrl!);
+                                setPhotoModalVisible(false);
+                            }} />
+                            <Button title="Schließen" onPress={() => setPhotoModalVisible(false)} />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
 
+// ==========================================================
+// STYLES
+// ==========================================================
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#400A6D' },
     header: { width: '100%', height: 200 },
@@ -355,4 +425,7 @@ const styles = StyleSheet.create({
     image: { width: 160, height: 160, margin: 4, borderRadius: 8 },
     uploadingContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 10 },
     uploadingText: { color: '#FFF', marginLeft: 10 },
+    imageModalContent: { backgroundColor: '#E6CCFF', margin: 24, borderRadius: 16, padding: 12, alignItems: 'center', justifyContent: 'center' },
+    fullscreenImage: { width: '100%', height: 500, borderRadius: 12 },
+    modalButtonRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 16, flexWrap: 'wrap' },
 });

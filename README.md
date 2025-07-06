@@ -1,4 +1,4 @@
-# 🎉 Party App _(Name noch unbekannt)_
+# 🎉 Sportsfreunde Promilla
 
 [![Expo SDK](https://img.shields.io/badge/Expo-SDK_49.0.0-blue?logo=expo&logoColor=white)](https://docs.expo.dev/) [![React Native](https://img.shields.io/badge/React%20Native-0.72.0-blue?logo=react&logoColor=white)](https://reactnative.dev/)
 
@@ -11,7 +11,7 @@ Speichere Party-Fotos, scanne Getränke, berechne Promille und lasse dir mit dem
 
 - 📸 **Galerie:** Speichere und teile Party-Fotos in Alben
 - 🍺 **Promille-Rechner:** Berechne deinen ungefähren Blutalkoholwert durch das Scannen deiner Getränke
-- 🎡 **Glücksrad: Zufällige Trinkspiele für die Party
+- 🎡 **Glücksrad**: Zufällige Trinkspiele für die Party
 
 ---
 
@@ -56,15 +56,38 @@ Speichere Party-Fotos, scanne Getränke, berechne Promille und lasse dir mit dem
     git clone https://github.com/LenaWabro/Promilie.git
     cd Promilie
    
-4. Abhängigkeiten installieren
+4. **Abhängigkeiten installieren**
    ```bash
     npm install
+   ````
+
+     4.1 Expo-Plugins installieren
+      
+      ```bash
+         npx expo install expo-image-picker
+         npx expo install expo-file-system
+         npx expo install expo-media-library
+         npx expo install @expo/vector-icons
+      ```
+   4.2 Firebase
+
+      ```bash
+         npm install firebase
+      ```
+   4.3 Styling & Layout
+
+      ```bash
+       npm install @react-native-seoul/masonry-list
+       npm install react-native-svg
+       npm install react-native-reanimated
+      ```
+
 
 5. Entwicklungsserver starten
    ```bash
     npx expo start
    
-6. Scanne danach den QR Code im Terminal
+6. Scanne danach den QR Code im Terminal oder öffne es über die Expo Go App auf deinem Smartphone. 
 
 ## 🔧 Konfiguration & Firebase-Setup
 
@@ -118,7 +141,7 @@ Speichere Party-Fotos, scanne Getränke, berechne Promille und lasse dir mit dem
 
 - **Framework:** React Native & Expo
 - **Backend:** Firebase Firestore & Storage
-- **Scanner:** Expo Barcode Scanner API
+- **Scanner:** Expo Camera mit integriertem Barcode Scanner
 
 ---
 
@@ -140,10 +163,10 @@ Der Promille-Rechner liefert nur Schätzwerte. Alkohol am Steuer ist lebensgefä
  
 ---
 
-## Kontakt
+## Entwicklerinnen
 
 - Cathrin Gradinger 
 - Sonja Schwarz 
-- Lena Wabro 
+- Lena Wabro
 
 
