@@ -24,21 +24,6 @@ Speichere Party-Fotos, scanne Getränke, berechne Promille und lasse dir mit dem
 | **Promille berechnen** | Promille-Rechner → Drinks auswählen → Geschlecht & Gewicht eingeben → 「Berechnen |
 | **Glücksrad spielen** | Glücksrad → 「Drehen」 → Trinkspiel erscheint → „Los geht’s!“                  |
 
----
-
-## Screenshots
-
-![Galerie-Screen](./assets/screenshots/gallery.png)  
-*Galerie-Ansicht mit Albenübersicht.*
-
-![Scanner-Screen](./assets/screenshots/scanner.png)  
-*Barcode-Scanner zum Erfassen von Getränken.*
-
-![Promille-Rechner](./assets/screenshots/bac_calculator.png)  
-*Promille-Rechner für Party-Fun.*
-
-![Glücksrad](./assets/screenshots/wheel.png)  
-*Glücksrad mit zufälligen Spielen.*
 
 ---
 
