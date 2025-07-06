@@ -1,40 +1,28 @@
 import React, { useState } from "react";
-import {
-    ScrollView,
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    Dimensions,
-    ImageBackground,
-} from "react-native";
+import {ScrollView, View, Text, StyleSheet, TouchableOpacity, Dimensions, ImageBackground,} from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { G, Path, Text as SvgText } from "react-native-svg";
-import Animated, {
-    useSharedValue,
-    withTiming,
-    useAnimatedStyle,
-    runOnJS,
-} from "react-native-reanimated";
+import Animated, { useSharedValue, withTiming, useAnimatedStyle, runOnJS,} from "react-native-reanimated";
 import { drinkingGames } from "../utils/drinkingGames";
 import { DrinkingGame } from "../utils/types";
 
+
+//Konstantenberechnung fürs Glücksrad
 const { width, height: screenHeight } = Dimensions.get("window");
+//Breite des Rads
 const wheelSize = width * 0.9;
+//Anzahl der Spiele aus der Liste
 const numberOfGames = drinkingGames.length;
+//Winkel pro Segment
 const anglePerSegment = 360 / numberOfGames;
 
-function HorizontalText({
-                            text,
-                            radius,
-                            startAngle,
-                            anglePerSegment,
-                        }: {
+//Komponente für Text auf dem Rad
+function HorizontalText({text, radius, startAngle, anglePerSegment,}: {
     text: string;
     radius: number;
     startAngle: number;
     anglePerSegment: number;
-}) {
+    }) {
     const midAngle = startAngle + anglePerSegment / 2;
     const midAngleRad = (midAngle * Math.PI) / 180;
     const textRadius = radius * 0.5;
@@ -51,18 +39,22 @@ function HorizontalText({
             rotation={midAngle}
             origin={`${x}, ${y}`}
             textAnchor="middle"
-            alignmentBaseline="middle"
-        >
+            alignmentBaseline="middle">
             {text}
         </SvgText>
     );
 }
 
+//Hauptkomponente Spiele
 export default function Spiele() {
+    //Rotation des Rads
     const rotation = useSharedValue(0);
+    //Gewähltes Spiel
     const [selectedGame, setSelectedGame] = useState<DrinkingGame | null>(null);
+    //Rad dreht gerade
     const [isSpinning, setIsSpinning] = useState(false);
 
+    //Erstellt Segmente fürs Rad
     const makeWheelSlices = () => {
         const slices = [];
         for (let i = 0; i < numberOfGames; i++) {
@@ -100,10 +92,12 @@ export default function Spiele() {
         return slices;
     };
 
+    //Animierter Stil für Radrotation
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ rotate: `${rotation.value}deg` }],
     }));
 
+    //Funktion zum Drehen des Rads
     const spinWheel = () => {
         if (isSpinning) return;
 
@@ -113,20 +107,26 @@ export default function Spiele() {
         setIsSpinning(true);
         setSelectedGame(null);
 
+        //Zufallswinkel
         const randomDeg = Math.floor(Math.random() * 360);
+        //3 volle Umdrehungen + Zufall
         const fullRotation = 360 * 3 + randomDeg;
 
+        //Startet Animation mit Dauer 4s
         rotation.value = withTiming(fullRotation, { duration: 4000 }, () => {
             const finalAngle = fullRotation % 360;
             let adjustedAngle = (finalAngle + 90) % 360;
             const rawIndex = Math.floor(adjustedAngle / 90);
             const selectedIndex = (3 - rawIndex) % 4;
 
+            //Setzt ausgewähltes Spiel
             runOnJS(setSelectedGame)(drinkingGames[selectedIndex]);
+            //Stoppt drehen
             runOnJS(setIsSpinning)(false);
         });
     };
 
+    //UI Rendering
     return (
         <ScrollView
             contentContainerStyle={[styles.container, { minHeight: screenHeight }]}
@@ -185,6 +185,7 @@ export default function Spiele() {
     );
 }
 
+//Styling für alle Komponenten
 const styles = StyleSheet.create({
     container: {
         flexGrow: 1,
