@@ -12,7 +12,11 @@ import {
     TouchableOpacity,
     ImageBackground,
 } from 'react-native'
+
+// Scanner-Komponente (selbst gebaut!)
 import BarcodeScanner from '../components/BarcodeScanner'
+
+// Firestore-Verbindung
 import { db } from '../firebase_config'
 import {
     collection,
@@ -23,6 +27,7 @@ import {
     doc,
 } from 'firebase/firestore'
 
+// Typ für OpenFoodFacts Produkt
 type Product = {
     code: string
     product_name: string
@@ -35,15 +40,17 @@ type Product = {
     }
 }
 
+// Typ für gespeicherte Getränke in Firestore
 type Drink = {
-    id: string // hinzugefügt
+    id: string           // Firestore Dokument-ID
     barcode: string
     product_name: string
     alc: number
-    ml: number
+    ml: number           // getrunkene Menge
     createdAt: any
 }
 
+// Kleine Komponente für Promille-Hinweis
 const InfoBox: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     return (
         <View style={styles.infoBox}>
@@ -53,21 +60,29 @@ const InfoBox: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 }
 
 export default function ScannerScreen() {
-    const [scanning, setScanning] = useState(false)
-    const [scanned, setScanned] = useState(false)
-    const scannedRef = useRef(false)
+    // -------------
+    // STATES
+    // -------------
 
-    const [loading, setLoading] = useState(false)
-    const [product, setProduct] = useState<Product | null>(null)
-    const [drinks, setDrinks] = useState<Drink[]>([])
+    const [scanning, setScanning] = useState(false) // Kamera AN/AUS
+    const [scanned, setScanned] = useState(false)   // Mehrfach-Scan-Blocker
+    const scannedRef = useRef(false)      // HARTE Sperre
 
-    const [weight, setWeight] = useState('')
-    const [gender, setGender] = useState<'m' | 'f'>('m')
-    const [promille, setPromille] = useState<string | null>(null)
-    const [drivingHint, setDrivingHint] = useState<string | null>(null)
+    const [loading, setLoading] = useState(false)   // Zeigt Spinner während API lädt
+    const [product, setProduct] = useState<Product | null>(null) // Produkt-Details
+    const [drinks, setDrinks] = useState<Drink[]>([]) // Liste aller gespeicherten Drinks
 
-    const [showCalculator, setShowCalculator] = useState(false)
+    // Promille-Rechner
+    const [weight, setWeight] = useState('')  // User-Gewicht
+    const [gender, setGender] = useState<'m' | 'f'>('m') // Geschlecht
+    const [promille, setPromille] = useState<string | null>(null) // Ergebnis
+    const [drivingHint, setDrivingHint] = useState<string | null>(null) // Fahrhinweis
 
+    const [showCalculator, setShowCalculator] = useState(false) // Zeigt das Eingabeformular
+
+    // ------------------------
+    // Drinks laden beim Start
+    // ------------------------
     const loadDrinks = async () => {
         const snapshot = await getDocs(collection(db, 'drinks'))
         const loaded: Drink[] = []
@@ -82,6 +97,9 @@ export default function ScannerScreen() {
         loadDrinks()
     }, [])
 
+    // ------------------------
+    // Drink speichern mit Menge
+    // ------------------------
     const saveDrink = async (barcode: string, name: string, alc: number) => {
         Alert.prompt(
             'Wie viel hast du davon getrunken?',
@@ -100,12 +118,16 @@ export default function ScannerScreen() {
                     ml,
                     createdAt: Timestamp.now(),
                 })
+
                 console.log('✅ Getränk gespeichert mit Menge:', ml)
-                await loadDrinks()
+                await loadDrinks() // Liste neu laden
             }
         )
     }
 
+    // ------------------------
+    // ALLE Drinks löschen
+    // ------------------------
     const deleteAllDrinks = async () => {
         const snapshot = await getDocs(collection(db, 'drinks'))
         const promises: Promise<void>[] = []
@@ -119,49 +141,72 @@ export default function ScannerScreen() {
         setDrivingHint(null)
     }
 
+    // Einzelnes Getränk löschen
     const deleteDrink = async (id: string) => {
         await deleteDoc(doc(db, 'drinks', id))
-        const updatedDrinks = drinks.filter((d) => d.id !== id)
-        setDrinks(updatedDrinks)
-
-        // Promille und Fahr-Hinweis immer zurücksetzen, wenn ein Drink gelöscht wird
+        const updated = drinks.filter((d) => d.id !== id)
+        setDrinks(updated)
         setPromille(null)
         setDrivingHint(null)
     }
 
+    // ------------------------
+    // Produktdaten von OpenFoodFacts holen
+    // ------------------------
     const fetchProduct = async (barcode: string) => {
-        setLoading(true)
+        setLoading(true) // Zeige Loading-Spinner an
+
         try {
+            //Baue URL mit Barcode
             const res = await fetch(
                 `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
             )
+
+            //Parsen der Antwort als JSON
             const json = await res.json()
 
+            // Prüfe, ob ein Produkt gefunden wurde
+            // OpenFoodFacts liefert status = 1, wenn Produkt existiert
             if (json.status === 1) {
-                const raw = json.product as Product
-                setProduct(raw)
+                const raw = json.product as Product // 🔍 Typ sicherstellen
+                setProduct(raw) // 📌 Speichere Produktdaten lokal im State
 
+                // Alkoholgehalt herausfinden
+                // Fall A: alc_percent vorhanden → direkt nehmen
+                // Fall B: sonst in nutriments nach alcohol oder alcohol_100g suchen
                 const alc = raw.alc_percent
                     ? parseFloat(raw.alc_percent)
                     : raw.nutriments?.alcohol ??
                     raw.nutriments?.alcohol_100g ??
                     0
 
+                // Wenn Alkoholgehalt gefunden → speichern
                 if (alc > 0) {
+                    // Speichere den Drink mit Barcode, Name & Alkoholgehalt in Firestore
                     await saveDrink(barcode, raw.product_name, alc)
                 } else {
+                    // Kein Alkoholwert gefunden → Hinweis für User
                     Alert.alert('Kein Alkoholwert', 'Kein Alkoholgehalt gefunden.')
                 }
+
             } else {
+                // Barcode unbekannt → Hinweis für User
                 Alert.alert('Nicht gefunden', 'Kein Produkt zu diesem Barcode.')
             }
+
         } catch {
+            // Falls Netzwerkfehler o. ä.
             Alert.alert('Fehler', 'Daten konnten nicht geladen werden.')
         } finally {
+            //Lade-Spinner ausschalten
             setLoading(false)
         }
     }
 
+
+    // ------------------------
+    // Scanner Callback → blockiert Mehrfach-Fire
+    // ------------------------
     const handleScanned = (barcode: string) => {
         if (scannedRef.current) return
         scannedRef.current = true
@@ -171,6 +216,9 @@ export default function ScannerScreen() {
         fetchProduct(barcode)
     }
 
+    // ------------------------
+    // Promille berechnen
+    // ------------------------
     const calculatePromille = () => {
         if (!weight) {
             Alert.alert('Fehler', 'Bitte Gewicht eingeben.')
@@ -185,6 +233,7 @@ export default function ScannerScreen() {
 
         const r = gender === 'm' ? 0.68 : 0.55
 
+        // Alle gespeicherten Drinks summieren
         const totalGrammAlk = drinks.reduce((sum, drink) => {
             const gramm = drink.ml * (drink.alc / 100) * 0.8
             return sum + gramm
@@ -195,6 +244,7 @@ export default function ScannerScreen() {
         setPromille(roundedPromille.toFixed(2))
         setShowCalculator(false)
 
+        // Autofahren erlaubt?
         const hoursToSober = (roundedPromille - 0.5) / 0.1
         if (roundedPromille <= 0.5) {
             setDrivingHint('✅ Du darfst noch Auto fahren.')
@@ -206,6 +256,9 @@ export default function ScannerScreen() {
         }
     }
 
+    // ------------------------
+    // Scanner Reset
+    // ------------------------
     const resetScanner = () => {
         scannedRef.current = false
         setScanned(false)
@@ -220,12 +273,14 @@ export default function ScannerScreen() {
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
+            {/* Kamera */}
             {scanning && (
                 <View style={styles.cameraContainer}>
                     <BarcodeScanner onScanned={handleScanned} />
                 </View>
             )}
 
+            {/* App UI */}
             {!scanning && (
                 <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
                     <ImageBackground
@@ -237,6 +292,7 @@ export default function ScannerScreen() {
                         </View>
                     </ImageBackground>
 
+                    {/* Start-Button */}
                     <TouchableOpacity
                         style={styles.scanButton}
                         onPress={resetScanner}
@@ -244,6 +300,7 @@ export default function ScannerScreen() {
                         <Text style={styles.scanButtonText}>PRODUKT SCANNEN</Text>
                     </TouchableOpacity>
 
+                    {/* Spinner */}
                     {loading && (
                         <View style={styles.center}>
                             <ActivityIndicator size="large" color="#FFF" />
@@ -251,6 +308,7 @@ export default function ScannerScreen() {
                         </View>
                     )}
 
+                    {/* Promille-Rechner */}
                     {!showCalculator && (
                         <TouchableOpacity
                             style={styles.scanButton}
@@ -263,7 +321,6 @@ export default function ScannerScreen() {
                     {showCalculator && (
                         <>
                             <Text style={styles.title}>🔢 Promille-Rechner</Text>
-
                             <TextInput
                                 placeholder="Gewicht in kg"
                                 keyboardType="numeric"
@@ -326,6 +383,7 @@ export default function ScannerScreen() {
                         </>
                     )}
 
+                    {/* Ergebnis */}
                     {promille && (
                         <>
                             <Text style={styles.title}>
@@ -335,6 +393,7 @@ export default function ScannerScreen() {
                         </>
                     )}
 
+                    {/* Drinks anzeigen */}
                     {drinks.length > 0 && (
                         <>
                             <Text style={styles.title}>Gespeicherte Getränke:</Text>
@@ -374,6 +433,9 @@ export default function ScannerScreen() {
     )
 }
 
+// ----------
+// STYLES
+// ----------
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#400A6D' },
     cameraContainer: { ...StyleSheet.absoluteFillObject, zIndex: 999 },
@@ -475,14 +537,14 @@ const styles = StyleSheet.create({
         color: '#FFF',
     },
     infoBox: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)', // sehr dezenter heller Hintergrund
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 12,
         paddingVertical: 12,
         paddingHorizontal: 20,
         marginHorizontal: 20,
         marginBottom: 20,
         borderWidth: 1,
-        borderColor: 'rgba(207, 168, 255, 0.4)', // zarter lila Rand
+        borderColor: 'rgba(207, 168, 255, 0.4)',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
@@ -490,7 +552,7 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     infoBoxText: {
-        color: '#CFA8FF', // helles Lila
+        color: '#CFA8FF',
         fontWeight: '500',
         fontSize: 16,
         textAlign: 'center',
